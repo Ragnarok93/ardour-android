@@ -8,7 +8,7 @@ on:
       - "libs/ardour/**"
       - "libs/pbd/**"
       - "libs/lua/**"
-      - "libs/midi++2/**"
+      - "libs/midi*2/**"
       - "libs/evoral/**"
       - "libs/temporal/**"
       - "libs/audiographer/**"

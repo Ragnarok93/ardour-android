@@ -36,6 +36,7 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
+        prefab = true
     }
 
     externalNativeBuild {
@@ -72,6 +73,10 @@ dependencies {
     // Substituted by settings.gradle.kts with :lib from the checked-out
     // Ragnarok93/oneui-compose feature/oneui8-compose-components source tree.
     implementation("com.github.Ragnarok93:oneui-compose:0.8.0")
+
+    // Stable Prefab package. NDK r28 is intentionally retained while the
+    // Android audio path is brought up and validated.
+    implementation("com.google.oboe:oboe:1.11.0")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
 }

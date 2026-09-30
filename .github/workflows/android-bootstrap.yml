@@ -36,9 +36,9 @@ jobs:
         with:
           gradle-version: "9.7.1"
 
-      - name: Build Android debug APK
+      - name: Test and build Android debug APK
         working-directory: android
-        run: gradle :app:assembleDebug --stacktrace -PoneuiComposeDir="$GITHUB_WORKSPACE/android/oneui-compose-src"
+        run: gradle :app:testDebugUnitTest :app:assembleDebug --stacktrace -PoneuiComposeDir="$GITHUB_WORKSPACE/android/oneui-compose-src"
 
       - name: Upload debug APK
         if: success()

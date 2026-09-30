@@ -63,7 +63,11 @@ PY
 # The manifest pins the same registry commit as this checkout. Keeping the
 # install root outside vcpkg itself makes CI/local caches replaceable without
 # mutating the pinned tool checkout.
-"$VCPKG_ROOT/vcpkg" install     --triplet "$TRIPLET"     --x-manifest-root="$ENGINE_DIR"     --x-install-root="$INSTALL_ROOT"
+"$VCPKG_ROOT/vcpkg" install \
+    --triplet "$TRIPLET" \
+    --overlay-ports="$ENGINE_DIR/vcpkg-overlays" \
+    --x-manifest-root="$ENGINE_DIR" \
+    --x-install-root="$INSTALL_ROOT"
 
 PREFIX="$INSTALL_ROOT/$TRIPLET"
 

@@ -40,6 +40,11 @@ jobs:
         with:
           gradle-version: "9.7.1"
 
+      - name: Validate Android engine scaffolding
+        run: |
+          python3 -m py_compile wscript libs/backends/android/wscript
+          bash -n android/engine/configure-ardour-android.sh
+
       - name: Test and build Android debug APK
         working-directory: android
         run: gradle :app:testDebugUnitTest :app:assembleDebug --stacktrace -PoneuiComposeDir="$GITHUB_WORKSPACE/android/oneui-compose-src"

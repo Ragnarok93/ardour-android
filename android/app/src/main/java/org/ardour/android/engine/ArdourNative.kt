@@ -10,4 +10,13 @@ object ArdourNative {
 
     @JvmStatic
     external fun engineApiVersion(): Int
+
+    @JvmStatic
+    external fun audioProbeState(): String
+
+    @JvmStatic
+    external fun startAudioProbe(): Boolean
+
+    @JvmStatic
+    external fun stopAudioProbe()
 }

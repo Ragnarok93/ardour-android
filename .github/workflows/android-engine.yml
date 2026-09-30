@@ -2,9 +2,7 @@ name: Android engine cross-build
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - feature/android-port-oneui8
+  pull_request:
     paths:
       - "android/engine/**"
       - "libs/backends/android/**"

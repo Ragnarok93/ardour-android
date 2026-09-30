@@ -2,12 +2,10 @@ package org.ardour.android.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -22,13 +20,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -41,6 +35,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import org.oneui.compose.components.buttons.OneUiButton
+import org.oneui.compose.components.buttons.OneUiButtonDefaults
+import org.oneui.compose.components.surface.OneUiSurface
+import org.oneui.compose.components.surface.OneUiSurfaceBox
+import org.oneui.compose.icons.OneUiIconButton
+import org.oneui.compose.icons.OneUiIcons
+import org.oneui.compose.oneui8.components.OneUI8ListItem
+import org.oneui.compose.theme.OneUiTheme
 
 private enum class Workspace(val label: String) {
     Arrange("Arrange"),
@@ -66,9 +68,11 @@ private val previewTracks = listOf(
 @Composable
 fun ArdourApp(nativeStatus: String) {
     ArdourTheme {
+        val colors = OneUiTheme.colors
+
         Surface(
             modifier = Modifier.fillMaxSize(),
-            color = MaterialTheme.colorScheme.background,
+            color = colors.background,
         ) {
             BoxWithConstraints(
                 modifier = Modifier
@@ -88,10 +92,12 @@ fun ArdourApp(nativeStatus: String) {
 @Composable
 private fun DesktopWorkspace(nativeStatus: String) {
     var workspace by remember { mutableStateOf(Workspace.Arrange) }
+    val colors = OneUiTheme.colors
 
     Column(Modifier.fillMaxSize()) {
         TransportBar(nativeStatus)
-        HorizontalDivider(color = ArdourPalette.Outline)
+        HorizontalDivider(color = colors.divider)
+
         Row(
             modifier = Modifier
                 .weight(1f)
@@ -99,8 +105,9 @@ private fun DesktopWorkspace(nativeStatus: String) {
         ) {
             InspectorPane(Modifier.width(244.dp).fillMaxHeight())
             WorkspaceContent(workspace, Modifier.weight(1f).fillMaxHeight())
-            BrowserPane(Modifier.width(260.dp).fillMaxHeight())
+            BrowserPane(Modifier.width(272.dp).fillMaxHeight())
         }
+
         WorkspaceBar(workspace) { workspace = it }
     }
 }
@@ -111,6 +118,7 @@ private fun TabletWorkspace(nativeStatus: String) {
 
     Column(Modifier.fillMaxSize()) {
         TransportBar(nativeStatus)
+
         Row(
             modifier = Modifier
                 .weight(1f)
@@ -119,6 +127,7 @@ private fun TabletWorkspace(nativeStatus: String) {
             InspectorPane(Modifier.width(216.dp).fillMaxHeight())
             WorkspaceContent(workspace, Modifier.weight(1f).fillMaxHeight())
         }
+
         WorkspaceBar(workspace) { workspace = it }
     }
 }
@@ -140,21 +149,23 @@ private fun WorkspaceContent(workspace: Workspace, modifier: Modifier) {
         Workspace.Arrange -> ArrangePane(modifier)
         Workspace.Mixer -> MixerPane(modifier)
         Workspace.Edit -> CenterWorkspace(
-            modifier,
-            "Editor",
-            "Piano roll, audio detail, automation and tempo editing land here.",
+            modifier = modifier,
+            title = "Editor",
+            detail = "Piano roll, audio detail, automation and tempo editing land here.",
         )
         Workspace.Plugins -> CenterWorkspace(
-            modifier,
-            "Plugins",
-            "Native LV2/VST3/AAP and compatibility-hosted editors share this workspace.",
+            modifier = modifier,
+            title = "Plugins",
+            detail = "Native LV2/VST3/AAP and compatibility-hosted editors share this workspace.",
         )
     }
 }
 
 @Composable
 private fun TransportBar(nativeStatus: String, compact: Boolean = false) {
-    Surface(color = ArdourPalette.Surface) {
+    val colors = OneUiTheme.colors
+
+    Surface(color = colors.surfaceElevated) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -163,16 +174,16 @@ private fun TransportBar(nativeStatus: String, compact: Boolean = false) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (!compact) {
-                Column(Modifier.width(210.dp)) {
+                Column(Modifier.width(230.dp)) {
                     Text(
                         text = "Ardour",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.SemiBold,
+                        color = colors.primaryText,
+                        style = OneUiTheme.typography.title,
                     )
                     Text(
                         text = nativeStatus,
+                        color = colors.secondaryText,
                         fontSize = 10.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
@@ -184,13 +195,28 @@ private fun TransportBar(nativeStatus: String, compact: Boolean = false) {
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                TransportButton("◀")
-                TransportButton("■")
-                TransportButton("●", ArdourPalette.Record)
-                TransportButton("▶")
-                Spacer(Modifier.width(12.dp))
+                OneUiIconButton(
+                    icon = OneUiIcons.Back,
+                    contentDescription = "Return to start",
+                    onClick = {},
+                )
+                OneUiIconButton(
+                    icon = OneUiIcons.Pause,
+                    contentDescription = "Stop",
+                    onClick = {},
+                )
+                RecordButton()
+                OneUiIconButton(
+                    icon = OneUiIcons.Play,
+                    contentDescription = "Play",
+                    onClick = {},
+                )
+
+                Spacer(Modifier.width(10.dp))
+
                 Text(
                     text = "01:01:000",
+                    color = colors.primaryText,
                     fontSize = if (compact) 18.sp else 22.sp,
                     fontWeight = FontWeight.Medium,
                 )
@@ -198,7 +224,7 @@ private fun TransportBar(nativeStatus: String, compact: Boolean = false) {
 
             if (!compact) {
                 Row(
-                    modifier = Modifier.width(210.dp),
+                    modifier = Modifier.width(230.dp),
                     horizontalArrangement = Arrangement.End,
                 ) {
                     CompactBadge("120 BPM")
@@ -211,39 +237,62 @@ private fun TransportBar(nativeStatus: String, compact: Boolean = false) {
 }
 
 @Composable
-private fun TransportButton(label: String, tint: Color = MaterialTheme.colorScheme.onSurface) {
-    TextButton(
+private fun RecordButton() {
+    val colors = OneUiTheme.colors
+
+    OneUiButton(
         onClick = {},
-        modifier = Modifier.size(44.dp),
-        colors = ButtonDefaults.textButtonColors(contentColor = tint),
-        contentPadding = PaddingValues(0.dp),
+        modifier = Modifier.size(48.dp),
+        minWidth = 48.dp,
+        minHeight = 48.dp,
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
+        colors = OneUiButtonDefaults.tonalColors(
+            containerColor = colors.destructive.copy(alpha = 0.14f),
+            contentColor = colors.destructive,
+        ),
+        shape = OneUiTheme.shapes.iconButton,
     ) {
-        Text(label, fontSize = 18.sp)
+        Text("●", fontSize = 17.sp)
     }
 }
 
 @Composable
 private fun CompactBadge(label: String) {
-    Box(
-        modifier = Modifier
-            .background(ArdourPalette.SurfaceRaised, RoundedCornerShape(12.dp))
-            .padding(horizontal = 10.dp, vertical = 7.dp)
+    val colors = OneUiTheme.colors
+
+    OneUiSurfaceBox(
+        containerColor = colors.surface,
+        shape = OneUiTheme.shapes.control,
     ) {
-        Text(label, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(
+            text = label,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+            color = colors.secondaryText,
+            fontSize = 12.sp,
+        )
     }
 }
 
 @Composable
 private fun InspectorPane(modifier: Modifier) {
-    Surface(modifier = modifier, color = ArdourPalette.Surface) {
+    val colors = OneUiTheme.colors
+
+    Surface(modifier = modifier, color = colors.surfaceElevated) {
         Column(Modifier.padding(14.dp)) {
             PaneHeader("Inspector")
             Spacer(Modifier.height(12.dp))
-            LabeledValue("Track", "Lead Vocal")
-            LabeledValue("Input", "Input 1")
-            LabeledValue("Output", "Master")
-            LabeledValue("Gain", "0.0 dB")
-            LabeledValue("Pan", "Center")
+
+            OneUiSurface(
+                containerColor = colors.background,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                LabeledValue("Track", "Lead Vocal")
+                LabeledValue("Input", "Input 1")
+                LabeledValue("Output", "Master")
+                LabeledValue("Gain", "0.0 dB")
+                LabeledValue("Pan", "Center")
+            }
+
             Spacer(Modifier.height(18.dp))
             PaneHeader("Inserts")
             Spacer(Modifier.height(8.dp))
@@ -258,13 +307,29 @@ private fun InspectorPane(modifier: Modifier) {
 
 @Composable
 private fun ArrangePane(modifier: Modifier) {
-    Surface(modifier = modifier, color = ArdourPalette.Background) {
+    val colors = OneUiTheme.colors
+
+    Surface(modifier = modifier, color = colors.background) {
         Column(Modifier.fillMaxSize()) {
-            PaneHeader(
-                title = "Tracks",
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
-            )
-            HorizontalDivider(color = ArdourPalette.Outline)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(
+                        horizontal = OneUiTheme.spacing.screenHorizontal,
+                        vertical = 12.dp,
+                    ),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                PaneHeader("Tracks", Modifier.weight(1f))
+                OneUiIconButton(
+                    icon = OneUiIcons.Add,
+                    contentDescription = "Add track",
+                    onClick = {},
+                )
+            }
+
+            HorizontalDivider(color = colors.divider)
+
             LazyColumn(Modifier.fillMaxSize()) {
                 items(previewTracks) { track ->
                     TrackLane(track)
@@ -276,31 +341,38 @@ private fun ArrangePane(modifier: Modifier) {
 
 @Composable
 private fun TrackLane(track: TrackUiState) {
+    val colors = OneUiTheme.colors
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .height(92.dp)
-            .border(width = 0.5.dp, color = ArdourPalette.Outline)
+            .border(width = 0.5.dp, color = colors.divider)
     ) {
         Column(
             modifier = Modifier
                 .width(154.dp)
                 .fillMaxHeight()
-                .background(ArdourPalette.Surface)
+                .background(colors.surfaceElevated)
                 .padding(12.dp),
             verticalArrangement = Arrangement.Center,
         ) {
-            Text(track.name, fontWeight = FontWeight.Medium, fontSize = 13.sp)
             Text(
-                track.detail,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                text = track.name,
+                color = colors.primaryText,
+                fontWeight = FontWeight.Medium,
+                fontSize = 13.sp,
+            )
+            Text(
+                text = track.detail,
+                color = colors.secondaryText,
                 fontSize = 11.sp,
             )
             Spacer(Modifier.height(8.dp))
             Text(
-                "M   S   R",
+                text = "M   S   R",
+                color = colors.secondaryText,
                 fontSize = 10.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
 
@@ -310,18 +382,22 @@ private fun TrackLane(track: TrackUiState) {
                 .fillMaxHeight()
                 .padding(8.dp)
         ) {
-            Box(
+            val regionColor = if (track.secondary) {
+                colors.functionalPositive.copy(alpha = 0.70f)
+            } else {
+                colors.accentStrong.copy(alpha = 0.72f)
+            }
+
+            OneUiSurfaceBox(
                 modifier = Modifier
                     .fillMaxWidth(track.regionWidth)
-                    .fillMaxHeight()
-                    .background(
-                        if (track.secondary) ArdourPalette.RegionSecondary else ArdourPalette.Region,
-                        RoundedCornerShape(10.dp),
-                    )
-                    .padding(10.dp)
+                    .fillMaxHeight(),
+                containerColor = regionColor,
+                shape = OneUiTheme.shapes.control,
             ) {
                 Text(
                     text = track.name,
+                    modifier = Modifier.padding(10.dp),
                     color = Color.White,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Medium,
@@ -333,25 +409,59 @@ private fun TrackLane(track: TrackUiState) {
 
 @Composable
 private fun BrowserPane(modifier: Modifier) {
-    Surface(modifier = modifier, color = ArdourPalette.Surface) {
+    val colors = OneUiTheme.colors
+
+    Surface(modifier = modifier, color = colors.surfaceElevated) {
         Column(Modifier.padding(14.dp)) {
             PaneHeader("Browser")
             Spacer(Modifier.height(12.dp))
-            BrowserItem("Instruments", "Native and external instruments")
-            BrowserItem("Audio FX", "Dynamics, EQ and spatial")
-            BrowserItem("MIDI FX", "Processors and generators")
-            BrowserItem("Loops", "Project and user content")
-            BrowserItem("Files", "Device and document storage")
+
+            OneUI8ListItem(
+                title = "Instruments",
+                subtitle = "Native and external instruments",
+                onClick = {},
+            )
+            Spacer(Modifier.height(6.dp))
+            OneUI8ListItem(
+                title = "Audio FX",
+                subtitle = "Dynamics, EQ and spatial",
+                onClick = {},
+            )
+            Spacer(Modifier.height(6.dp))
+            OneUI8ListItem(
+                title = "MIDI FX",
+                subtitle = "Processors and generators",
+                onClick = {},
+            )
+            Spacer(Modifier.height(6.dp))
+            OneUI8ListItem(
+                title = "Loops",
+                subtitle = "Project and user content",
+                onClick = {},
+            )
+            Spacer(Modifier.height(6.dp))
+            OneUI8ListItem(
+                title = "Files",
+                subtitle = "Device and document storage",
+                onClick = {},
+            )
         }
     }
 }
 
 @Composable
 private fun MixerPane(modifier: Modifier) {
-    Surface(modifier = modifier, color = ArdourPalette.Background) {
-        Column(Modifier.fillMaxSize().padding(16.dp)) {
+    val colors = OneUiTheme.colors
+
+    Surface(modifier = modifier, color = colors.background) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp)
+        ) {
             PaneHeader("Mixer")
             Spacer(Modifier.height(16.dp))
+
             Row(
                 modifier = Modifier.fillMaxSize(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -367,51 +477,68 @@ private fun MixerPane(modifier: Modifier) {
 
 @Composable
 private fun ChannelStrip(name: String, modifier: Modifier) {
-    Surface(
+    val colors = OneUiTheme.colors
+
+    OneUiSurface(
         modifier = modifier.fillMaxHeight(),
-        color = ArdourPalette.Surface,
-        shape = RoundedCornerShape(16.dp),
+        containerColor = colors.surfaceElevated,
     ) {
-        Column(
-            modifier = Modifier.padding(10.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Text(
-                name,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                fontSize = 12.sp,
-            )
-            Spacer(Modifier.height(14.dp))
-            InsertSlot("EQ")
-            Spacer(Modifier.height(6.dp))
-            InsertSlot("Insert")
-            Spacer(Modifier.weight(1f))
-            Box(
-                Modifier
-                    .width(12.dp)
-                    .height(180.dp)
-                    .background(ArdourPalette.SurfaceSelected, RoundedCornerShape(6.dp))
-            )
-            Spacer(Modifier.height(12.dp))
-            Text("0.0", fontSize = 11.sp)
-        }
+        Text(
+            text = name,
+            color = colors.primaryText,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            fontSize = 12.sp,
+        )
+
+        Spacer(Modifier.height(14.dp))
+        InsertSlot("EQ")
+        Spacer(Modifier.height(6.dp))
+        InsertSlot("Insert")
+        Spacer(Modifier.weight(1f))
+
+        Box(
+            Modifier
+                .align(Alignment.CenterHorizontally)
+                .width(12.dp)
+                .height(180.dp)
+                .background(
+                    color = colors.surface,
+                    shape = OneUiTheme.shapes.control,
+                )
+        )
+
+        Spacer(Modifier.height(12.dp))
+
+        Text(
+            text = "0.0",
+            modifier = Modifier.align(Alignment.CenterHorizontally),
+            color = colors.secondaryText,
+            fontSize = 11.sp,
+        )
     }
 }
 
 @Composable
 private fun CenterWorkspace(modifier: Modifier, title: String, detail: String) {
-    Surface(modifier = modifier, color = ArdourPalette.Background) {
+    val colors = OneUiTheme.colors
+
+    Surface(modifier = modifier, color = colors.background) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Column(
-                modifier = Modifier.padding(28.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
+            OneUiSurface(
+                modifier = Modifier.width(420.dp),
+                containerColor = colors.surfaceElevated,
             ) {
-                Text(title, fontSize = 22.sp, fontWeight = FontWeight.SemiBold)
+                Text(
+                    text = title,
+                    color = colors.primaryText,
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.SemiBold,
+                )
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    detail,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    text = detail,
+                    color = colors.secondaryText,
                     fontSize = 13.sp,
                 )
             }
@@ -421,38 +548,42 @@ private fun CenterWorkspace(modifier: Modifier, title: String, detail: String) {
 
 @Composable
 private fun WorkspaceBar(selected: Workspace, onSelected: (Workspace) -> Unit) {
-    Surface(color = ArdourPalette.Surface) {
+    val colors = OneUiTheme.colors
+
+    Surface(color = colors.navigationBackground) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(58.dp)
+                .height(62.dp)
                 .padding(horizontal = 8.dp),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Workspace.entries.forEach { workspace ->
                 val active = workspace == selected
-                Box(
-                    modifier = Modifier
-                        .padding(horizontal = 4.dp)
-                        .background(
-                            if (active) ArdourPalette.SurfaceSelected else Color.Transparent,
-                            RoundedCornerShape(14.dp),
-                        )
-                        .clickable { onSelected(workspace) }
-                        .padding(horizontal = 18.dp, vertical = 9.dp)
+
+                OneUiButton(
+                    onClick = { onSelected(workspace) },
+                    minHeight = 42.dp,
+                    minWidth = 76.dp,
+                    colors = OneUiButtonDefaults.toggleColors(active),
+                    shape = OneUiTheme.shapes.control,
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                        horizontal = 14.dp,
+                        vertical = 8.dp,
+                    ),
                 ) {
                     Text(
-                        workspace.label,
-                        color = if (active) {
-                            MaterialTheme.colorScheme.onSurface
+                        text = workspace.label,
+                        style = if (active) {
+                            OneUiTheme.typography.navigationLabelSelected
                         } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
+                            OneUiTheme.typography.navigationLabel
                         },
-                        fontSize = 12.sp,
-                        fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
                     )
                 }
+
+                Spacer(Modifier.width(6.dp))
             }
         }
     }
@@ -463,49 +594,57 @@ private fun PaneHeader(title: String, modifier: Modifier = Modifier) {
     Text(
         text = title,
         modifier = modifier,
-        fontSize = 14.sp,
+        color = OneUiTheme.colors.primaryText,
+        style = OneUiTheme.typography.sectionLabel,
         fontWeight = FontWeight.SemiBold,
     )
 }
 
 @Composable
 private fun LabeledValue(label: String, value: String) {
+    val colors = OneUiTheme.colors
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 7.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
-        Text(value, fontSize = 11.sp)
+        Text(
+            text = label,
+            color = colors.secondaryText,
+            fontSize = 11.sp,
+        )
+        Text(
+            text = value,
+            color = colors.primaryText,
+            fontSize = 11.sp,
+        )
     }
 }
 
 @Composable
 private fun InsertSlot(label: String) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(ArdourPalette.SurfaceRaised, RoundedCornerShape(10.dp))
-            .padding(horizontal = 10.dp, vertical = 9.dp)
-    ) {
-        Text(label, fontSize = 11.sp)
-    }
-}
+    val colors = OneUiTheme.colors
 
-@Composable
-private fun BrowserItem(title: String, detail: String) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable {}
-            .padding(vertical = 10.dp)
+    OneUiButton(
+        onClick = {},
+        modifier = Modifier.fillMaxWidth(),
+        colors = OneUiButtonDefaults.neutralColors(
+            containerColor = colors.background,
+            contentColor = colors.primaryText,
+        ),
+        shape = OneUiTheme.shapes.control,
+        minHeight = 40.dp,
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(
+            horizontal = 12.dp,
+            vertical = 8.dp,
+        ),
     ) {
-        Text(title, fontSize = 12.sp, fontWeight = FontWeight.Medium)
         Text(
-            detail,
-            fontSize = 10.sp,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            text = label,
+            modifier = Modifier.fillMaxWidth(),
+            fontSize = 11.sp,
         )
     }
 }

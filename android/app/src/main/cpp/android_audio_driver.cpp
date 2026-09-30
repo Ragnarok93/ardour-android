@@ -12,13 +12,12 @@ AndroidAudioDriver::~AndroidAudioDriver() {
 bool AndroidAudioDriver::open(oboe::SharingMode sharingMode) {
     oboe::AudioStreamBuilder builder;
 
-    builder
-        .setDirection(oboe::Direction::Output)
-        .setPerformanceMode(oboe::PerformanceMode::LowLatency)
-        .setSharingMode(sharingMode)
-        .setFormat(oboe::AudioFormat::Float)
-        .setChannelCount(2)
-        .setDataCallback(this);
+    builder.setDirection(oboe::Direction::Output);
+    builder.setPerformanceMode(oboe::PerformanceMode::LowLatency);
+    builder.setSharingMode(sharingMode);
+    builder.setFormat(oboe::AudioFormat::Float);
+    builder.setChannelCount(2);
+    builder.setDataCallback(this);
 
     std::shared_ptr<oboe::AudioStream> stream;
     const oboe::Result result = builder.openStream(stream);

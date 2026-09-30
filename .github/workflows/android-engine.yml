@@ -59,7 +59,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            .android-engine/vcpkg/downloads
+            .android-engine/vcpkg-downloads
             .android-engine/vcpkg_installed
           key: ardour-android-vcpkg-${{ runner.os }}-${{ hashFiles('android/engine/vcpkg.json') }}
           restore-keys: |
@@ -68,13 +68,13 @@ jobs:
       - name: Stage Android arm64 dependencies
         env:
           ANDROID_NDK_HOME: ${{ env.ANDROID_SDK_ROOT }}/ndk/28.2.13676358
-        run: ./android/engine/build-deps.sh
+        run: bash android/engine/build-deps.sh
 
       - name: Configure Ardour engine for Android
         env:
           ANDROID_NDK_HOME: ${{ env.ANDROID_SDK_ROOT }}/ndk/28.2.13676358
           ARDOUR_ANDROID_DEPS_PREFIX: ${{ github.workspace }}/.android-engine/vcpkg_installed/arm64-android
-        run: ./android/engine/configure-ardour-android.sh
+        run: bash android/engine/configure-ardour-android.sh
 
       - name: Build Android Ardour backend closure
         run: ./waf build --targets=android_audiobackend -j2

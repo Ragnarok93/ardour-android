@@ -1,0 +1,7 @@
+{
+  "name": "libsigcpp",
+  "version": "2.10.0",
+  "description": "Typesafe callback framework for C++ (legacy 2.0 ABI required by Ardour)",
+  "homepage": "https://libsigcplusplus.github.io/libsigcplusplus/",
+  "license": "LGPL-2.1-or-later"
+}

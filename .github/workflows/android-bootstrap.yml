@@ -43,6 +43,8 @@ jobs:
       - name: Validate Android engine scaffolding
         run: |
           python3 -m py_compile wscript libs/backends/android/wscript
+          python3 -m json.tool android/engine/vcpkg.json >/dev/null
+          bash -n android/engine/build-deps.sh
           bash -n android/engine/configure-ardour-android.sh
 
       - name: Test and build Android debug APK

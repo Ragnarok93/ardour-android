@@ -17,11 +17,14 @@ mkdir -p "$BUILD_ROOT" "$DOWNLOADS_ROOT"
 export VCPKG_DOWNLOADS="$DOWNLOADS_ROOT"
 
 if [[ ! -d "$VCPKG_ROOT/.git" ]]; then
-    git clone https://github.com/microsoft/vcpkg.git "$VCPKG_ROOT"
+    rm -rf "$VCPKG_ROOT"
+    mkdir -p "$VCPKG_ROOT"
+    git -C "$VCPKG_ROOT" init
+    git -C "$VCPKG_ROOT" remote add origin https://github.com/microsoft/vcpkg.git
 fi
 
 git -C "$VCPKG_ROOT" fetch --depth=1 origin "$VCPKG_COMMIT"
-git -C "$VCPKG_ROOT" checkout --detach "$VCPKG_COMMIT"
+git -C "$VCPKG_ROOT" checkout --detach FETCH_HEAD
 
 if [[ ! -x "$VCPKG_ROOT/vcpkg" ]]; then
     "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics

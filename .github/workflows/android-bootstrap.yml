@@ -1,5 +1,9 @@
 name: Android bootstrap
 
+concurrency:
+  group: android-bootstrap-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     branches:

@@ -36,21 +36,41 @@ and routing graph never claim recording support that is not functional.
 
 ## Configure contract
 
-Use:
+Stage dependencies, then configure:
 
-    android/engine/configure-ardour-android.sh
+    bash android/engine/build-deps.sh
+    export ARDOUR_ANDROID_DEPS_PREFIX="$PWD/.android-engine/vcpkg_installed/arm64-android"
+    bash android/engine/configure-ardour-android.sh
 
 Required environment:
 
 - ANDROID_NDK_HOME
 - ARDOUR_ANDROID_DEPS_PREFIX
+
+Optional overrides:
+
 - OBOE_PREFAB_INCLUDE
 - OBOE_PREFAB_LIBDIR
+
+By default Oboe is taken from the same staged Android dependency prefix.
 
 The dependency prefix must contain Android/arm64 builds and pkg-config metadata.
 Host libraries must never be visible through PKG_CONFIG_PATH.
 
 ## External dependency prefix
+
+`android/engine/vcpkg.json` and `build-deps.sh` create the initial
+`arm64-android` prefix reproducibly. The manifest pins its vcpkg registry and
+also pins the older ABI families Ardour currently consumes:
+
+- GLib 2.66.x
+- glibmm 2.52.x (`glibmm-2.4` ABI)
+- libsigc++ 2.10.x (`sigc++-2.0` ABI)
+- TagLib 1.13.x
+- Rubber Band 3.3.x
+
+Current glibmm/libsigc++ major releases are deliberately not substituted because
+they expose different pkg-config/ABI families from Ardour's existing source.
 
 The current Ardour engine still expects its normal non-GUI dependency graph.
 The Android prefix will therefore need target builds for the libraries consumed

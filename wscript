@@ -623,7 +623,11 @@ int main() { return 0; }''',
         c_flags.append("-Qunused-arguments")
         cxx_flags.append("-Qunused-arguments")
 
-    if (re.search ("(i[0-9]86|x86_64|AMD64)", cpu) is not None) and conf.env['build_target'] != 'none':
+    if (
+            not opt.android_target
+            and re.search ("(i[0-9]86|x86_64|AMD64)", cpu) is not None
+            and conf.env['build_target'] != 'none'
+    ):
 
         #
         # ARCH_X86 means anything in the x86 family from i386 to x86_64
@@ -689,7 +693,11 @@ int main() { return 0; }''',
             # of the compiler.
             if re.search ('x86_64-w64', str(conf.env['CC'])) is not None:
                     compiler_flags.append ("-DBUILD_SSE_OPTIMIZATIONS")
-        if not build_host_supports_sse:
+        if (
+                not opt.android_target
+                and (conf.env['build_target'] == 'i686' or conf.env['build_target'] == 'x86_64')
+                and not build_host_supports_sse
+        ):
             print("\nWarning: you are building Ardour with SSE support even though your system does not support these instructions. (This may not be an error, especially if you are a package maintainer)")
 
     # end optimization section
@@ -728,7 +736,10 @@ int main() { return 0; }''',
     #
     # save off CPU element in an env
     #
-    conf.define ('CONFIG_ARCH', cpu)
+    # Cross targets must describe the target architecture, not the machine
+    # executing Waf. This is especially important for x86_64-hosted Android CI.
+    config_arch = conf.env['build_target'] if opt.android_target else cpu
+    conf.define ('CONFIG_ARCH', config_arch)
 
     #
     # ARCH="..." overrides all
@@ -808,7 +819,7 @@ int main() { return 0; }''',
     # Do not use Boost.System library
     cxx_flags.append('-DBOOST_ERROR_CODE_HEADER_ONLY')
 
-    if platform == 'linux' and not conf.options.no_execstack:
+    if platform == 'linux' and not opt.android_target and not conf.options.no_execstack:
         if conf.check_cxx(linkflags=["-zexecstack"], mandatory = False, execute = False, msg = 'Checking for gcc/lld-style -zexecstack'):
             flags_dict['execstack'] = "-zexecstack"
         elif conf.check_cxx(linkflags=["-z execstack"], mandatory = False, execute = False, msg = 'Checking for clang execstack'):

@@ -19,8 +19,10 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 API="${ARDOUR_ANDROID_API:-29}"
 DEPS_PREFIX="${ARDOUR_ANDROID_DEPS_PREFIX:?Set ARDOUR_ANDROID_DEPS_PREFIX}"
 NDK="${ANDROID_NDK_HOME:?Set ANDROID_NDK_HOME}"
-OBOE_INCLUDE="${OBOE_PREFAB_INCLUDE:?Set OBOE_PREFAB_INCLUDE}"
-OBOE_LIBDIR="${OBOE_PREFAB_LIBDIR:?Set OBOE_PREFAB_LIBDIR}"
+# The vcpkg dependency stage includes Oboe. Explicit variables remain useful
+# when testing a Gradle/Prefab build of a different Oboe revision.
+OBOE_INCLUDE="${OBOE_PREFAB_INCLUDE:-$DEPS_PREFIX/include}"
+OBOE_LIBDIR="${OBOE_PREFAB_LIBDIR:-$DEPS_PREFIX/lib}"
 
 case "$(uname -s)" in
     Linux) HOST_TAG="linux-x86_64" ;;

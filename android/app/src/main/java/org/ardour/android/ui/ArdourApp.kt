@@ -167,7 +167,11 @@ private fun TabletWorkspace(
     var workspace by remember { mutableStateOf(Workspace.Arrange) }
 
     Column(Modifier.fillMaxSize()) {
-        TransportBar(nativeStatus)
+        TransportBar(
+            nativeStatus = nativeStatus,
+            audioProbe = audioProbe,
+            onAudioProbeToggle = onAudioProbeToggle,
+        )
 
         Row(
             modifier = Modifier
@@ -286,7 +290,18 @@ private fun TransportBar(
                 )
             }
 
-            if (!compact) {
+            if (compact) {
+                OneUiIconButton(
+                    icon = OneUiIcons.Motion,
+                    contentDescription = if (audioProbe.running) {
+                        "Stop audio probe"
+                    } else {
+                        "Start audio probe"
+                    },
+                    onClick = onAudioProbeToggle,
+                    tint = if (audioProbe.running) colors.accent else colors.secondaryText,
+                )
+            } else {
                 Row(
                     modifier = Modifier.width(300.dp),
                     horizontalArrangement = Arrangement.End,

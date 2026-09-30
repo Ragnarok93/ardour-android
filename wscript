@@ -412,6 +412,30 @@ children = [
         'libs/auscan',
 ]
 
+# Android engine builds deliberately recurse only the native engine dependency
+# closure. Headers from skipped source directories remain available, but GTK,
+# desktop frontends, control-surface modules, scanners and GUI libraries are
+# neither configured nor built for the first Android engine bring-up.
+android_engine_children = [
+        # bundled DSP / format libraries referenced by libardour
+        'libs/zita-resampler',
+        'libs/zita-convolver',
+        'libs/staffpad',
+        'libs/fluidsynth',
+        'libs/libltc',
+        'libs/ptformat',
+
+        # core Ardour dependency graph
+        'libs/pbd',
+        'libs/lua',
+        'libs/midi++2',
+        'libs/evoral',
+        'libs/backends',
+        'libs/temporal',
+        'libs/ardour',
+        'libs/audiographer',
+]
+
 i18n_children = [
         'gtk2_ardour',
         'libs/ardour',
@@ -1525,7 +1549,12 @@ int main () { __int128 x = 0; return 0; }
         sub_config_and_use(conf, 'libs/appleutility')
     elif re.search ("openbsd", sys.platform) is not None:
         pass
-    elif Options.options.dist_target != 'mingw' and Options.options.dist_target != 'msvc':
+    elif (
+            Options.options.dist_target != 'mingw'
+            and Options.options.dist_target != 'msvc'
+            and not Options.options.android_target
+    ):
+        # Cross-compiled Android executables cannot be executed on the build host.
         sub_config_and_use(conf, 'tools/sanity_check')
 
     # explicitly link against libm. This is possible on all POSIX systems
@@ -1533,7 +1562,8 @@ int main () { __int128 x = 0; return 0; }
     if not (Options.options.dist_target == 'mingw' or Options.options.dist_target == 'msvc'):
         conf.env.append_value('LIB', 'm')
 
-    for i in children:
+    active_children = android_engine_children if Options.options.android_target else children
+    for i in active_children:
         conf.recurse(i)
 
     # Fix utterly braindead FLAC include path to not smash assert.h
@@ -1681,7 +1711,7 @@ def build(bld):
         bld.recurse('libs/appleutility')
     elif re.search ("openbsd", sys.platform) is not None:
         pass
-    elif bld.env['build_target'] not in ('mingw', 'msvc'):
+    elif bld.env['build_target'] not in ('mingw', 'msvc') and not bld.env['ANDROID_TARGET']:
         bld.recurse('tools/sanity_check')
 
         obj              = bld(features = 'subst')
@@ -1690,7 +1720,8 @@ def build(bld):
         obj.chmod        = Utils.O755
         obj.install_path = bld.env['LIBDIR']
 
-    for i in children:
+    active_children = android_engine_children if bld.env['ANDROID_TARGET'] else children
+    for i in active_children:
         bld.recurse(i)
 
     if bld.env['build_target'] == 'msvc': #For using .def generator

@@ -79,5 +79,7 @@ dependencies {
     // Android audio path is brought up and validated.
     implementation("com.google.oboe:oboe:1.11.0")
 
+    testImplementation("junit:junit:4.13.2")
+
     debugImplementation("androidx.compose.ui:ui-tooling")
 }

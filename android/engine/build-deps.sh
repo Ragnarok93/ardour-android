@@ -11,8 +11,10 @@ TRIPLET="${ARDOUR_ANDROID_VCPKG_TRIPLET:-arm64-android}"
 BUILD_ROOT="${ARDOUR_ANDROID_BUILD_ROOT:-$ROOT_DIR/.android-engine}"
 VCPKG_ROOT="${ARDOUR_VCPKG_ROOT:-$BUILD_ROOT/vcpkg}"
 INSTALL_ROOT="${ARDOUR_ANDROID_VCPKG_INSTALLED:-$BUILD_ROOT/vcpkg_installed}"
+DOWNLOADS_ROOT="${ARDOUR_VCPKG_DOWNLOADS:-$BUILD_ROOT/vcpkg-downloads}"
 
-mkdir -p "$BUILD_ROOT"
+mkdir -p "$BUILD_ROOT" "$DOWNLOADS_ROOT"
+export VCPKG_DOWNLOADS="$DOWNLOADS_ROOT"
 
 if [[ ! -d "$VCPKG_ROOT/.git" ]]; then
     git clone https://github.com/microsoft/vcpkg.git "$VCPKG_ROOT"

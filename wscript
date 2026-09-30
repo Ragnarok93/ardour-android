@@ -842,7 +842,13 @@ def options(opt):
     opt.add_option('--arch', type='string', action='store', dest='arch',
                     help='Architecture-specific compiler FLAGS')
     opt.add_option('--with-backends', type='string', action='store', default='', dest='with_backends',
-                    help='Specify which backend modules are to be included(jack,alsa,portaudio,coreaudio,pulseaudio)')
+                    help='Specify which backend modules are to be included(jack,alsa,portaudio,coreaudio,pulseaudio,android)')
+    opt.add_option('--android-target', action='store_true', default=False, dest='android_target',
+                    help='Configure the headless Ardour engine for Android/NDK')
+    opt.add_option('--android-oboe-include', type='string', action='store', default='', dest='android_oboe_include',
+                    help='Directory containing oboe/Oboe.h for Android backend builds')
+    opt.add_option('--android-oboe-libdir', type='string', action='store', default='', dest='android_oboe_libdir',
+                    help='Directory containing the Android ABI liboboe library')
     opt.add_option('--backtrace', action='store_true', default=False, dest='backtrace',
                     help='Compile with -rdynamic -- allow obtaining backtraces from within Ardour')
     opt.add_option('--no-carbon', action='store_true', default=False, dest='nocarbon',
@@ -1169,10 +1175,10 @@ def configure(conf):
               mandatory = True,
               msg = 'Checking for boost library >= 1.68')
 
-    if re.search ("linux", sys.platform) is not None and Options.options.dist_target != 'mingw':
+    if re.search ("linux", sys.platform) is not None and Options.options.dist_target != 'mingw' and not Options.options.android_target:
         autowaf.check_pkg(conf, 'alsa', uselib_store='ALSA')
 
-    if re.search ("linux", sys.platform) is not None and Options.options.dist_target != 'mingw':
+    if re.search ("linux", sys.platform) is not None and Options.options.dist_target != 'mingw' and not Options.options.android_target:
         autowaf.check_pkg(conf, 'libpulse', uselib_store='PULSEAUDIO', mandatory=False)
 
     if re.search ("openbsd", sys.platform) is not None:
@@ -1322,9 +1328,15 @@ int main () { __int128 x = 0; return 0; }
         conf.env.append_value('CFLAGS', "-DCOMPILER_INT128_SUPPORT")
 
 
-    # always use localized gtk2
-    conf.define('YTK', 1)
-    conf.define('HAVE_SUIL', 1)
+    # Android uses a native Compose frontend and must not pull GTK/SUIL into
+    # the engine build. Desktop behavior remains unchanged.
+    if Options.options.android_target:
+        conf.define('PLATFORM_ANDROID', 1)
+        conf.env['ANDROID_TARGET'] = True
+        conf.env['HAVE_SUIL'] = False
+    else:
+        conf.define('YTK', 1)
+        conf.define('HAVE_SUIL', 1)
 
     # Tell everyone that this is a waf build
 
@@ -1376,7 +1388,9 @@ int main () { __int128 x = 0; return 0; }
         else:
             conf.env['WINDOWS_VST_SUPPORT'] = False
     if not opts.no_lxvst:
-        if sys.platform == 'darwin':
+        if opts.android_target:
+            conf.env['LXVST_SUPPORT'] = False
+        elif sys.platform == 'darwin':
             conf.env['LXVST_SUPPORT'] = False
         elif Options.options.dist_target == 'mingw' or Options.options.dist_target == 'msvc':
             conf.env['LXVST_SUPPORT'] = False
@@ -1384,8 +1398,14 @@ int main () { __int128 x = 0; return 0; }
             conf.define('LXVST_SUPPORT', 1)
             conf.env['LXVST_SUPPORT'] = True
     if not opts.no_vst3:
-        conf.define('VST3_SUPPORT', 1)
-        conf.env['VST3_SUPPORT'] = True
+        if opts.android_target:
+            # Native Android VST3 hosting is a later, explicit plugin-runtime
+            # milestone. Keep the first engine bring-up free of desktop VST UI
+            # and scanner dependencies.
+            conf.env['VST3_SUPPORT'] = False
+        else:
+            conf.define('VST3_SUPPORT', 1)
+            conf.env['VST3_SUPPORT'] = True
     conf.env['WINDOWS_KEY'] = opts.windows_key
     if opts.rt_alloc_debug:
         conf.define('DEBUG_RT_ALLOC', 1)
@@ -1416,7 +1436,9 @@ int main () { __int128 x = 0; return 0; }
 
     backends = opts.with_backends.split(',')
 
-    if backends == ['']:
+    if opts.android_target and backends == ['']:
+        backends = ['android']
+    elif backends == ['']:
         backends = ['dummy']
         autowaf.check_pkg(conf, 'jack', uselib_store='JACK', atleast_version='1.9.10', mandatory=False)
         if conf.is_defined('HAVE_JACK'):
@@ -1431,7 +1453,7 @@ int main () { __int128 x = 0; return 0; }
         if Options.options.dist_target == 'mingw' or Options.options.dist_target == 'msvc':
             backends += ['portaudio']
 
-    if 'dummy' not in backends:
+    if not opts.android_target and 'dummy' not in backends:
         backends += ['dummy']
 
     conf.env['BACKENDS'] = backends
@@ -1441,6 +1463,19 @@ int main () { __int128 x = 0; return 0; }
     conf.env['BUILD_PABACKEND'] = any('portaudio' in b for b in backends)
     conf.env['BUILD_CORECRAPPITA'] = any('coreaudio' in b for b in backends)
     conf.env['BUILD_PULSEAUDIO'] = any('pulseaudio' in b for b in backends)
+    conf.env['BUILD_ANDROIDBACKEND'] = any('android' in b for b in backends)
+
+    if conf.env['BUILD_ANDROIDBACKEND']:
+        if not opts.android_target:
+            conf.fatal("Android backend requires --android-target")
+        if not opts.android_oboe_include or not os.path.isdir(opts.android_oboe_include):
+            conf.fatal("Android backend requires --android-oboe-include pointing at the Oboe include directory")
+        if not opts.android_oboe_libdir or not os.path.isdir(opts.android_oboe_libdir):
+            conf.fatal("Android backend requires --android-oboe-libdir pointing at the ABI liboboe directory")
+
+        conf.env['INCLUDES_OBOE'] = [os.path.abspath(opts.android_oboe_include)]
+        conf.env['LIBPATH_OBOE'] = [os.path.abspath(opts.android_oboe_libdir)]
+        conf.env['LIB_OBOE'] = ['oboe']
 
     if backends == [''] or not (
                conf.env['BUILD_JACKBACKEND']
@@ -1448,7 +1483,8 @@ int main () { __int128 x = 0; return 0; }
             or conf.env['BUILD_DUMMYBACKEND']
             or conf.env['BUILD_PABACKEND']
             or conf.env['BUILD_CORECRAPPITA']
-            or conf.env['BUILD_PULSEAUDIO']):
+            or conf.env['BUILD_PULSEAUDIO']
+            or conf.env['BUILD_ANDROIDBACKEND']):
         conf.fatal("Must configure and build at least one backend")
 
     if (Options.options.use_lld):
@@ -1589,6 +1625,7 @@ const char* const ardour_config_info = "\\n\\
     write_config_text('Dummy backend',         conf.env['BUILD_DUMMYBACKEND'])
     write_config_text('JACK Backend',          conf.env['BUILD_JACKBACKEND'])
     write_config_text('PulseAudio Backend',    conf.env['BUILD_PULSEAUDIO'])
+    write_config_text('Android/Oboe Backend',   conf.env['BUILD_ANDROIDBACKEND'])
     config_text.write("\\n\\\n")
     write_config_text('Buildstack', conf.env['DEPSTACK_REV'])
     write_config_text('Mac i386 Architecture', opts.generic)

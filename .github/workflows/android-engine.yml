@@ -1,0 +1,82 @@
+name: Android engine cross-build
+
+on:
+  pull_request:
+    paths:
+      - "android/engine/**"
+      - "libs/backends/android/**"
+      - "libs/ardour/**"
+      - "libs/pbd/**"
+      - "libs/lua/**"
+      - "libs/midi*2/**"
+      - "libs/evoral/**"
+      - "libs/temporal/**"
+      - "libs/audiographer/**"
+      - "libs/zita-resampler/**"
+      - "libs/zita-convolver/**"
+      - "libs/staffpad/**"
+      - "libs/fluidsynth/**"
+      - "libs/libltc/**"
+      - "libs/ptformat/**"
+      - "wscript"
+      - ".github/workflows/android-engine.yml"
+
+concurrency:
+  group: android-engine-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  engine:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout Ardour Android
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install host build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y autoconf automake gettext libtool ninja-build pkg-config
+
+      - name: Install Android NDK
+        run: |
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          test -x "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "ndk;28.2.13676358"
+
+      - name: Stage Android arm64 dependencies
+        run: |
+          export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/28.2.13676358"
+          export ARDOUR_ANDROID_API=29
+          export ARDOUR_ANDROID_VCPKG_TRIPLET=arm64-android
+          export ARDOUR_ANDROID_BUILD_ROOT="$GITHUB_WORKSPACE/.android-engine"
+          bash android/engine/build-deps.sh
+
+      - name: Configure Ardour engine for Android
+        run: |
+          export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/28.2.13676358"
+          export ARDOUR_ANDROID_API=29
+          export ARDOUR_ANDROID_BUILD_ROOT="$GITHUB_WORKSPACE/.android-engine"
+          export ARDOUR_ANDROID_DEPS_PREFIX="$GITHUB_WORKSPACE/.android-engine/vcpkg_installed/arm64-android"
+          bash android/engine/configure-ardour-android.sh
+
+      - name: Build Android Ardour backend closure
+        run: ./waf build --targets=android_audiobackend -j2
+
+      - name: Collect native outputs
+        if: success()
+        run: |
+          mkdir -p android-engine-artifacts
+          find build -type f \( -name "*.so" -o -name "*.a" \) -print -exec cp -L {} android-engine-artifacts/ \;
+
+      - name: Upload Android engine outputs
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ardour-android-engine-arm64
+          path: android-engine-artifacts/
+          if-no-files-found: error

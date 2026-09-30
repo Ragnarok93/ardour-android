@@ -412,6 +412,30 @@ children = [
         'libs/auscan',
 ]
 
+# Android engine builds deliberately recurse only the native engine dependency
+# closure. Headers from skipped source directories remain available, but GTK,
+# desktop frontends, control-surface modules, scanners and GUI libraries are
+# neither configured nor built for the first Android engine bring-up.
+android_engine_children = [
+        # bundled DSP / format libraries referenced by libardour
+        'libs/zita-resampler',
+        'libs/zita-convolver',
+        'libs/staffpad',
+        'libs/fluidsynth',
+        'libs/libltc',
+        'libs/ptformat',
+
+        # core Ardour dependency graph
+        'libs/pbd',
+        'libs/lua',
+        'libs/midi++2',
+        'libs/evoral',
+        'libs/backends',
+        'libs/temporal',
+        'libs/ardour',
+        'libs/audiographer',
+]
+
 i18n_children = [
         'gtk2_ardour',
         'libs/ardour',
@@ -599,7 +623,11 @@ int main() { return 0; }''',
         c_flags.append("-Qunused-arguments")
         cxx_flags.append("-Qunused-arguments")
 
-    if (re.search ("(i[0-9]86|x86_64|AMD64)", cpu) is not None) and conf.env['build_target'] != 'none':
+    if (
+            not opt.android_target
+            and re.search ("(i[0-9]86|x86_64|AMD64)", cpu) is not None
+            and conf.env['build_target'] != 'none'
+    ):
 
         #
         # ARCH_X86 means anything in the x86 family from i386 to x86_64
@@ -665,7 +693,11 @@ int main() { return 0; }''',
             # of the compiler.
             if re.search ('x86_64-w64', str(conf.env['CC'])) is not None:
                     compiler_flags.append ("-DBUILD_SSE_OPTIMIZATIONS")
-        if not build_host_supports_sse:
+        if (
+                not opt.android_target
+                and (conf.env['build_target'] == 'i686' or conf.env['build_target'] == 'x86_64')
+                and not build_host_supports_sse
+        ):
             print("\nWarning: you are building Ardour with SSE support even though your system does not support these instructions. (This may not be an error, especially if you are a package maintainer)")
 
     # end optimization section
@@ -704,7 +736,10 @@ int main() { return 0; }''',
     #
     # save off CPU element in an env
     #
-    conf.define ('CONFIG_ARCH', cpu)
+    # Cross targets must describe the target architecture, not the machine
+    # executing Waf. This is especially important for x86_64-hosted Android CI.
+    config_arch = conf.env['build_target'] if opt.android_target else cpu
+    conf.define ('CONFIG_ARCH', config_arch)
 
     #
     # ARCH="..." overrides all
@@ -784,7 +819,7 @@ int main() { return 0; }''',
     # Do not use Boost.System library
     cxx_flags.append('-DBOOST_ERROR_CODE_HEADER_ONLY')
 
-    if platform == 'linux' and not conf.options.no_execstack:
+    if platform == 'linux' and not opt.android_target and not conf.options.no_execstack:
         if conf.check_cxx(linkflags=["-zexecstack"], mandatory = False, execute = False, msg = 'Checking for gcc/lld-style -zexecstack'):
             flags_dict['execstack'] = "-zexecstack"
         elif conf.check_cxx(linkflags=["-z execstack"], mandatory = False, execute = False, msg = 'Checking for clang execstack'):
@@ -842,7 +877,13 @@ def options(opt):
     opt.add_option('--arch', type='string', action='store', dest='arch',
                     help='Architecture-specific compiler FLAGS')
     opt.add_option('--with-backends', type='string', action='store', default='', dest='with_backends',
-                    help='Specify which backend modules are to be included(jack,alsa,portaudio,coreaudio,pulseaudio)')
+                    help='Specify which backend modules are to be included(jack,alsa,portaudio,coreaudio,pulseaudio,android)')
+    opt.add_option('--android-target', action='store_true', default=False, dest='android_target',
+                    help='Configure the headless Ardour engine for Android/NDK')
+    opt.add_option('--android-oboe-include', type='string', action='store', default='', dest='android_oboe_include',
+                    help='Directory containing oboe/Oboe.h for Android backend builds')
+    opt.add_option('--android-oboe-libdir', type='string', action='store', default='', dest='android_oboe_libdir',
+                    help='Directory containing the Android ABI liboboe library')
     opt.add_option('--backtrace', action='store_true', default=False, dest='backtrace',
                     help='Compile with -rdynamic -- allow obtaining backtraces from within Ardour')
     opt.add_option('--no-carbon', action='store_true', default=False, dest='nocarbon',
@@ -1169,10 +1210,10 @@ def configure(conf):
               mandatory = True,
               msg = 'Checking for boost library >= 1.68')
 
-    if re.search ("linux", sys.platform) is not None and Options.options.dist_target != 'mingw':
+    if re.search ("linux", sys.platform) is not None and Options.options.dist_target != 'mingw' and not Options.options.android_target:
         autowaf.check_pkg(conf, 'alsa', uselib_store='ALSA')
 
-    if re.search ("linux", sys.platform) is not None and Options.options.dist_target != 'mingw':
+    if re.search ("linux", sys.platform) is not None and Options.options.dist_target != 'mingw' and not Options.options.android_target:
         autowaf.check_pkg(conf, 'libpulse', uselib_store='PULSEAUDIO', mandatory=False)
 
     if re.search ("openbsd", sys.platform) is not None:
@@ -1322,9 +1363,15 @@ int main () { __int128 x = 0; return 0; }
         conf.env.append_value('CFLAGS', "-DCOMPILER_INT128_SUPPORT")
 
 
-    # always use localized gtk2
-    conf.define('YTK', 1)
-    conf.define('HAVE_SUIL', 1)
+    # Android uses a native Compose frontend and must not pull GTK/SUIL into
+    # the engine build. Desktop behavior remains unchanged.
+    if Options.options.android_target:
+        conf.define('PLATFORM_ANDROID', 1)
+        conf.env['ANDROID_TARGET'] = True
+        conf.env['HAVE_SUIL'] = False
+    else:
+        conf.define('YTK', 1)
+        conf.define('HAVE_SUIL', 1)
 
     # Tell everyone that this is a waf build
 
@@ -1376,7 +1423,9 @@ int main () { __int128 x = 0; return 0; }
         else:
             conf.env['WINDOWS_VST_SUPPORT'] = False
     if not opts.no_lxvst:
-        if sys.platform == 'darwin':
+        if opts.android_target:
+            conf.env['LXVST_SUPPORT'] = False
+        elif sys.platform == 'darwin':
             conf.env['LXVST_SUPPORT'] = False
         elif Options.options.dist_target == 'mingw' or Options.options.dist_target == 'msvc':
             conf.env['LXVST_SUPPORT'] = False
@@ -1384,8 +1433,14 @@ int main () { __int128 x = 0; return 0; }
             conf.define('LXVST_SUPPORT', 1)
             conf.env['LXVST_SUPPORT'] = True
     if not opts.no_vst3:
-        conf.define('VST3_SUPPORT', 1)
-        conf.env['VST3_SUPPORT'] = True
+        if opts.android_target:
+            # Native Android VST3 hosting is a later, explicit plugin-runtime
+            # milestone. Keep the first engine bring-up free of desktop VST UI
+            # and scanner dependencies.
+            conf.env['VST3_SUPPORT'] = False
+        else:
+            conf.define('VST3_SUPPORT', 1)
+            conf.env['VST3_SUPPORT'] = True
     conf.env['WINDOWS_KEY'] = opts.windows_key
     if opts.rt_alloc_debug:
         conf.define('DEBUG_RT_ALLOC', 1)
@@ -1416,7 +1471,9 @@ int main () { __int128 x = 0; return 0; }
 
     backends = opts.with_backends.split(',')
 
-    if backends == ['']:
+    if opts.android_target and backends == ['']:
+        backends = ['android']
+    elif backends == ['']:
         backends = ['dummy']
         autowaf.check_pkg(conf, 'jack', uselib_store='JACK', atleast_version='1.9.10', mandatory=False)
         if conf.is_defined('HAVE_JACK'):
@@ -1431,7 +1488,7 @@ int main () { __int128 x = 0; return 0; }
         if Options.options.dist_target == 'mingw' or Options.options.dist_target == 'msvc':
             backends += ['portaudio']
 
-    if 'dummy' not in backends:
+    if not opts.android_target and 'dummy' not in backends:
         backends += ['dummy']
 
     conf.env['BACKENDS'] = backends
@@ -1441,6 +1498,19 @@ int main () { __int128 x = 0; return 0; }
     conf.env['BUILD_PABACKEND'] = any('portaudio' in b for b in backends)
     conf.env['BUILD_CORECRAPPITA'] = any('coreaudio' in b for b in backends)
     conf.env['BUILD_PULSEAUDIO'] = any('pulseaudio' in b for b in backends)
+    conf.env['BUILD_ANDROIDBACKEND'] = any('android' in b for b in backends)
+
+    if conf.env['BUILD_ANDROIDBACKEND']:
+        if not opts.android_target:
+            conf.fatal("Android backend requires --android-target")
+        if not opts.android_oboe_include or not os.path.isdir(opts.android_oboe_include):
+            conf.fatal("Android backend requires --android-oboe-include pointing at the Oboe include directory")
+        if not opts.android_oboe_libdir or not os.path.isdir(opts.android_oboe_libdir):
+            conf.fatal("Android backend requires --android-oboe-libdir pointing at the ABI liboboe directory")
+
+        conf.env['INCLUDES_OBOE'] = [os.path.abspath(opts.android_oboe_include)]
+        conf.env['LIBPATH_OBOE'] = [os.path.abspath(opts.android_oboe_libdir)]
+        conf.env['LIB_OBOE'] = ['oboe']
 
     if backends == [''] or not (
                conf.env['BUILD_JACKBACKEND']
@@ -1448,7 +1518,8 @@ int main () { __int128 x = 0; return 0; }
             or conf.env['BUILD_DUMMYBACKEND']
             or conf.env['BUILD_PABACKEND']
             or conf.env['BUILD_CORECRAPPITA']
-            or conf.env['BUILD_PULSEAUDIO']):
+            or conf.env['BUILD_PULSEAUDIO']
+            or conf.env['BUILD_ANDROIDBACKEND']):
         conf.fatal("Must configure and build at least one backend")
 
     if (Options.options.use_lld):
@@ -1489,7 +1560,12 @@ int main () { __int128 x = 0; return 0; }
         sub_config_and_use(conf, 'libs/appleutility')
     elif re.search ("openbsd", sys.platform) is not None:
         pass
-    elif Options.options.dist_target != 'mingw' and Options.options.dist_target != 'msvc':
+    elif (
+            Options.options.dist_target != 'mingw'
+            and Options.options.dist_target != 'msvc'
+            and not Options.options.android_target
+    ):
+        # Cross-compiled Android executables cannot be executed on the build host.
         sub_config_and_use(conf, 'tools/sanity_check')
 
     # explicitly link against libm. This is possible on all POSIX systems
@@ -1497,7 +1573,8 @@ int main () { __int128 x = 0; return 0; }
     if not (Options.options.dist_target == 'mingw' or Options.options.dist_target == 'msvc'):
         conf.env.append_value('LIB', 'm')
 
-    for i in children:
+    active_children = android_engine_children if Options.options.android_target else children
+    for i in active_children:
         conf.recurse(i)
 
     # Fix utterly braindead FLAC include path to not smash assert.h
@@ -1589,6 +1666,7 @@ const char* const ardour_config_info = "\\n\\
     write_config_text('Dummy backend',         conf.env['BUILD_DUMMYBACKEND'])
     write_config_text('JACK Backend',          conf.env['BUILD_JACKBACKEND'])
     write_config_text('PulseAudio Backend',    conf.env['BUILD_PULSEAUDIO'])
+    write_config_text('Android/Oboe Backend',   conf.env['BUILD_ANDROIDBACKEND'])
     config_text.write("\\n\\\n")
     write_config_text('Buildstack', conf.env['DEPSTACK_REV'])
     write_config_text('Mac i386 Architecture', opts.generic)
@@ -1644,7 +1722,7 @@ def build(bld):
         bld.recurse('libs/appleutility')
     elif re.search ("openbsd", sys.platform) is not None:
         pass
-    elif bld.env['build_target'] not in ('mingw', 'msvc'):
+    elif bld.env['build_target'] not in ('mingw', 'msvc') and not bld.env['ANDROID_TARGET']:
         bld.recurse('tools/sanity_check')
 
         obj              = bld(features = 'subst')
@@ -1653,7 +1731,8 @@ def build(bld):
         obj.chmod        = Utils.O755
         obj.install_path = bld.env['LIBDIR']
 
-    for i in children:
+    active_children = android_engine_children if bld.env['ANDROID_TARGET'] else children
+    for i in active_children:
         bld.recurse(i)
 
     if bld.env['build_target'] == 'msvc': #For using .def generator

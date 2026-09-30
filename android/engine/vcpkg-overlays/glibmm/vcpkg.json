@@ -1,0 +1,14 @@
+{
+  "name": "glibmm",
+  "version": "2.52.1",
+  "description": "C++ bindings for GLib (legacy glibmm-2.4 ABI required by Ardour)",
+  "homepage": "https://www.gtkmm.org/",
+  "license": "LGPL-2.1-or-later",
+  "dependencies": [
+    {
+      "name": "glib",
+      "default-features": false
+    },
+    "libsigcpp"
+  ]
+}

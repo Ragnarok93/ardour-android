@@ -24,6 +24,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -35,6 +36,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import org.ardour.android.engine.ArdourNative
 import org.oneui.compose.components.buttons.OneUiButton
 import org.oneui.compose.components.buttons.OneUiButtonDefaults
 import org.oneui.compose.components.surface.OneUiSurface
@@ -65,8 +67,48 @@ private val previewTracks = listOf(
     TrackUiState("Drums", "MIDI 1", .91f, secondary = true),
 )
 
+private data class AudioProbeUiState(
+    val running: Boolean,
+    val status: String,
+)
+
 @Composable
 fun ArdourApp(nativeStatus: String) {
+    var audioProbe by remember {
+        mutableStateOf(
+            AudioProbeUiState(
+                running = false,
+                status = runCatching { ArdourNative.audioProbeState() }
+                    .getOrDefault("audio probe unavailable"),
+            )
+        )
+    }
+
+    fun toggleAudioProbe() {
+        if (audioProbe.running) {
+            runCatching { ArdourNative.stopAudioProbe() }
+            audioProbe = AudioProbeUiState(
+                running = false,
+                status = runCatching { ArdourNative.audioProbeState() }
+                    .getOrDefault("audio probe stopped"),
+            )
+        } else {
+            val started = runCatching { ArdourNative.startAudioProbe() }
+                .getOrDefault(false)
+            audioProbe = AudioProbeUiState(
+                running = started,
+                status = runCatching { ArdourNative.audioProbeState() }
+                    .getOrDefault(if (started) "audio running" else "audio start failed"),
+            )
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            runCatching { ArdourNative.stopAudioProbe() }
+        }
+    }
+
     ArdourTheme {
         val colors = OneUiTheme.colors
 
@@ -80,9 +122,9 @@ fun ArdourApp(nativeStatus: String) {
                     .windowInsetsPadding(WindowInsets.safeDrawing)
             ) {
                 when {
-                    maxWidth >= 1080.dp -> DesktopWorkspace(nativeStatus)
-                    maxWidth >= 720.dp -> TabletWorkspace(nativeStatus)
-                    else -> PhoneWorkspace(nativeStatus)
+                    maxWidth >= 1080.dp -> DesktopWorkspace(nativeStatus, audioProbe, ::toggleAudioProbe)
+                    maxWidth >= 720.dp -> TabletWorkspace(nativeStatus, audioProbe, ::toggleAudioProbe)
+                    else -> PhoneWorkspace(nativeStatus, audioProbe, ::toggleAudioProbe)
                 }
             }
         }
@@ -90,12 +132,16 @@ fun ArdourApp(nativeStatus: String) {
 }
 
 @Composable
-private fun DesktopWorkspace(nativeStatus: String) {
+private fun DesktopWorkspace(
+    nativeStatus: String,
+    audioProbe: AudioProbeUiState,
+    onAudioProbeToggle: () -> Unit,
+) {
     var workspace by remember { mutableStateOf(Workspace.Arrange) }
     val colors = OneUiTheme.colors
 
     Column(Modifier.fillMaxSize()) {
-        TransportBar(nativeStatus)
+        TransportBar(nativeStatus, audioProbe = audioProbe, onAudioProbeToggle = onAudioProbeToggle)
         HorizontalDivider(color = colors.divider)
 
         Row(
@@ -113,7 +159,11 @@ private fun DesktopWorkspace(nativeStatus: String) {
 }
 
 @Composable
-private fun TabletWorkspace(nativeStatus: String) {
+private fun TabletWorkspace(
+    nativeStatus: String,
+    audioProbe: AudioProbeUiState,
+    onAudioProbeToggle: () -> Unit,
+) {
     var workspace by remember { mutableStateOf(Workspace.Arrange) }
 
     Column(Modifier.fillMaxSize()) {
@@ -133,11 +183,20 @@ private fun TabletWorkspace(nativeStatus: String) {
 }
 
 @Composable
-private fun PhoneWorkspace(nativeStatus: String) {
+private fun PhoneWorkspace(
+    nativeStatus: String,
+    audioProbe: AudioProbeUiState,
+    onAudioProbeToggle: () -> Unit,
+) {
     var workspace by remember { mutableStateOf(Workspace.Arrange) }
 
     Column(Modifier.fillMaxSize()) {
-        TransportBar(nativeStatus, compact = true)
+        TransportBar(
+            nativeStatus = nativeStatus,
+            compact = true,
+            audioProbe = audioProbe,
+            onAudioProbeToggle = onAudioProbeToggle,
+        )
         WorkspaceContent(workspace, Modifier.weight(1f).fillMaxWidth())
         WorkspaceBar(workspace) { workspace = it }
     }
@@ -162,7 +221,12 @@ private fun WorkspaceContent(workspace: Workspace, modifier: Modifier) {
 }
 
 @Composable
-private fun TransportBar(nativeStatus: String, compact: Boolean = false) {
+private fun TransportBar(
+    nativeStatus: String,
+    compact: Boolean = false,
+    audioProbe: AudioProbeUiState,
+    onAudioProbeToggle: () -> Unit,
+) {
     val colors = OneUiTheme.colors
 
     Surface(color = colors.surfaceElevated) {
@@ -224,9 +288,27 @@ private fun TransportBar(nativeStatus: String, compact: Boolean = false) {
 
             if (!compact) {
                 Row(
-                    modifier = Modifier.width(230.dp),
+                    modifier = Modifier.width(300.dp),
                     horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    OneUiButton(
+                        onClick = onAudioProbeToggle,
+                        colors = OneUiButtonDefaults.toggleColors(audioProbe.running),
+                        shape = OneUiTheme.shapes.control,
+                        minHeight = 40.dp,
+                        minWidth = 92.dp,
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                            horizontal = 12.dp,
+                            vertical = 8.dp,
+                        ),
+                    ) {
+                        Text(
+                            text = if (audioProbe.running) "Audio on" else "Audio probe",
+                            fontSize = 11.sp,
+                        )
+                    }
+                    Spacer(Modifier.width(8.dp))
                     CompactBadge("120 BPM")
                     Spacer(Modifier.width(8.dp))
                     CompactBadge("4/4")
